@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Handler: handler.lambda_handler
+    Runtime: python3.9
+    MemorySize: 128
+    Timeout: 60
+    Tags:
+      Proyecto: ReStock
+    Layers:
+      - !Ref ReStockLambdaLayer
+
+Resources:
+
+  # Lambda Layers
+  ReStockLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: restock-layer
+      ContentUri: common/restock-layer
+      CompatibleRuntimes:
+        - python3.9
+
+  # Cognito
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: restock-cognito-user-pool
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+          StringAttributeConstraints:
+            MinLength: 5
+            MaxLength: 128
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+          StringAttributeConstraints:
+            MinLength: 2
+            MaxLength: 256
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireLowercase: true
+          RequireUppercase: true
+      AutoVerifiedAttributes:
+        - email
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: restock-cognito-user-pool-client
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - USER_PASSWORD_AUTH
+
+  AdminUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UserPool
+      Description: ReStock admin user group
+      GroupName: administrator
+
+  ClientUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UserPool
+      Description: ReStock client user group
+      GroupName: client
+
+  # Roles
+  CreateUserFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: AddUserToGroupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminAddUserToGroup
+                Resource:
+                  - !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # API
+  API:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: restock-rest-api
+      StageName: production
+      Auth:
+        DefaultAuthorizer: CognitoUserPoolAuthorizer
+        Authorizers:
+          CognitoUserPoolAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # Lambdas
+
+  ## Auth Layer
+
+  SignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/auth-layer/restock-lambda-auth-signup
+      Events:
+        SignUp:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /auth/signup
+            Auth:
+              Authorizer: NONE
+            RestApiId: !Ref API
+      Environment:
+        Variables:
+          APP_CLIENT_ID: !Ref UserPoolClient
+          USER_POOL_ID: !Ref UserPool
+          USER_GROUP_NAME: !Ref ClientUserGroup
+      Role: !GetAtt CreateUserFunctionRole.Arn
+
+  VerifyUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/auth-layer/restock-lambda-auth-verify
+      Events:
+        Verify:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /auth/verify
+            Auth:
+              Authorizer: NONE
+            RestApiId: !Ref API
+      Environment:
+        Variables:
+          APP_CLIENT_ID: !Ref UserPoolClient
+          USER_POOL_ID: !Ref UserPool
+
+  SignInFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/auth-layer/restock-lambda-auth-signin
+      Events:
+        Signin:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /auth/signin
+            Auth:
+              Authorizer: NONE
+            RestApiId: !Ref API
+      Environment:
+        Variables:
+          APP_CLIENT_ID: !Ref UserPoolClient
+
+  RefreshFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/auth-layer/restock-lambda-auth-refresh
+      Events:
+        Refresh:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /auth/refresh
+            Auth:
+              Authorizer: NONE
+            RestApiId: !Ref API
+      Environment:
+        Variables:
+          APP_CLIENT_ID: !Ref UserPoolClient
+
+Outputs:
+  ApiUrl:
+    Description: URL of ReStock REST API
+    Value: !Sub "https://${API}.execute-api.${AWS::Region}.amazonaws.com/production/"

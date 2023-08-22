@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "ReStock-API"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-9887gwq1jn15"
+s3_prefix = "ReStock-API"
+region = "us-east-1"
+profile = "benet"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []

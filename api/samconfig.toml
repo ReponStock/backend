@@ -10,3 +10,4 @@ profile = "benet"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
+parameter_overrides = "DBHOST=\"database-1.cwkdg0lodcd6.us-east-1.rds.amazonaws.com\" DBNAME=\"postgres\" DBPASSWORD=\"fJOJFsr^xc55\" DBUSER=\"restock\""

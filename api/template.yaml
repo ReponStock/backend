@@ -1,6 +1,23 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 
+Parameters:
+  DBHOST:
+    Type: String
+    Default: "database-1.cwkdg0lodcd6.us-east-1.rds.amazonaws.com"
+
+  DBNAME:
+    Type: String
+    Default: postgres
+
+  DBPASSWORD:
+    Type: String
+    Default: fJOJFsr^xc55
+
+  DBUSER:
+    Type: String
+    Default: restock
+
 Globals:
   Function:
     Handler: handler.lambda_handler
@@ -13,6 +30,13 @@ Globals:
       - !Ref ReStockLambdaLayer
 
 Resources:
+
+  # S3 Buckets
+  RestockRawBucketLayer:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: restock-s3-raw-layer
+      AccessControl: Private
 
   # Lambda Layers
   ReStockLambdaLayer:
@@ -108,6 +132,9 @@ Resources:
     Properties:
       Name: restock-rest-api
       StageName: production
+      BinaryMediaTypes:
+        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        - application/vnd.ms-excel
       Auth:
         DefaultAuthorizer: CognitoUserPoolAuthorizer
         Authorizers:
@@ -135,7 +162,11 @@ Resources:
         Variables:
           APP_CLIENT_ID: !Ref UserPoolClient
           USER_POOL_ID: !Ref UserPool
-          USER_GROUP_NAME: !Ref ClientUserGroup
+          USER_GROUP_NAME: !Ref AdminUserGroup
+          DB_HOST: !Ref DBHOST
+          DB_NAME: !Ref DBNAME
+          DB_PASSWORD: !Ref DBPASSWORD
+          DB_USER: !Ref DBUSER
       Role: !GetAtt CreateUserFunctionRole.Arn
 
   VerifyUserFunction:
@@ -189,6 +220,68 @@ Resources:
       Environment:
         Variables:
           APP_CLIENT_ID: !Ref UserPoolClient
+
+  ## Constructions
+  RestockLambdaCreateConstructionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/restock-lambda-create-construction
+      FunctionName: restock-lambda-create-construction
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHOST
+          DB_NAME: !Ref DBNAME
+          DB_PASSWORD: !Ref DBPASSWORD
+          DB_USER: !Ref DBUSER
+      Events:
+        createConstruction:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /construction
+            RestApiId: !Ref API
+
+  RestockLambdaListConstructionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/restock-lambda-list-constructions
+      FunctionName: restock-lambda-list-constructions
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHOST
+          DB_NAME: !Ref DBNAME
+          DB_PASSWORD: !Ref DBPASSWORD
+          DB_USER: !Ref DBUSER
+      Events:
+        createConstruction:
+          Type: Api
+          Properties:
+            Method: GET
+            Path: /construction
+            RestApiId: !Ref API
+
+  RestockLambdaUploadFileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: restock-lambda-upload-file
+      CodeUri: lambdas/restock-lambda-upload-file
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref RestockRawBucketLayer
+          DB_HOST: !Ref DBHOST
+          DB_NAME: !Ref DBNAME
+          DB_PASSWORD: !Ref DBPASSWORD
+          DB_USER: !Ref DBUSER
+      Events:
+        UploadFileEvent:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /construction/{construction_id}/upload
+            RestApiId: !Ref API
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref RestockRawBucketLayer
 
 Outputs:
   ApiUrl:

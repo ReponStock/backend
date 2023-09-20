@@ -1,0 +1,14 @@
+{
+    "py_venv_manager": "pipenv",
+    "python_runtime": "python3.9",
+    "aws_region": "us-east-1",
+    "lambda_base_directory": "lambdas",
+    "lambda_prefix": "restock-lambda-",
+    "lambda_filename": "handler",
+    "lambda_handler": "lambda_handler",
+    "lambda_build_strategy": "reference",
+    "lambda_layers_base_directory": "common",
+    "lambda_layers_suffix": "-layer",
+    "iac_technology": "sam",
+    "config_filename": ".spt-config.json"
+}

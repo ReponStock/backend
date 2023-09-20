@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Globals:
+  Function:
+    Architectures:
+    - x86_64
+    Handler: handler.lambda_handler
+    Runtime: python3.9
+Outputs:
+  AuthLayerFunctionARN:
+    Description: auth-layer ARN
+    Value:
+      Fn::GetAtt:
+      - AuthLayerFunction
+      - Arn
+  RestockLambdaCreateConstructionFunctionARN:
+    Description: restock-lambda-create-construction ARN
+    Value:
+      Fn::GetAtt:
+      - RestockLambdaCreateConstructionFunction
+      - Arn
+  RestockLambdaListConstructionsFunctionARN:
+    Description: restock-lambda-list-constructions ARN
+    Value:
+      Fn::GetAtt:
+      - RestockLambdaListConstructionsFunction
+      - Arn
+  RestockLambdaUploadFileFunctionARN:
+    Description: restock-lambda-upload-file ARN
+    Value:
+      Fn::GetAtt:
+      - RestockLambdaUploadFileFunction
+      - Arn
+  RestockLayerLayerARN:
+    Description: restock-layer ARN
+    Value:
+      Ref: RestockLayerLayer
+Resources:
+  AuthLayerFunction:
+    Properties:
+      CodeUri: lambdas/auth-layer
+      FunctionName: auth-layer
+    Type: AWS::Serverless::Function
+  RestockLambdaCreateConstructionFunction:
+    Properties:
+      CodeUri: lambdas/restock-lambda-create-construction
+      Environment:
+        Variables:
+          BUCKET_NAME: ''
+      FunctionName: restock-lambda-create-construction
+      Layers:
+      - Ref: RestockLayerLayer
+    Type: AWS::Serverless::Function
+  RestockLambdaListConstructionsFunction:
+    Properties:
+      CodeUri: lambdas/restock-lambda-list-constructions
+      FunctionName: restock-lambda-list-constructions
+      Layers:
+      - Ref: RestockLayerLayer
+    Type: AWS::Serverless::Function
+  RestockLambdaUploadFileFunction:
+    Properties:
+      CodeUri: lambdas/restock-lambda-upload-file
+      Environment:
+        Variables:
+          BUCKET_NAME: ''
+      FunctionName: restock-lambda-upload-file
+      Layers:
+      - Ref: RestockLayerLayer
+    Type: AWS::Serverless::Function
+  RestockLayerLayer:
+    Properties:
+      CompatibleRuntimes:
+      - python3.9
+      ContentUri: common/restock-layer
+      Description: ''
+      LayerName: restock-layer
+    Type: AWS::Serverless::LayerVersion
+Transform: AWS::Serverless-2016-10-31

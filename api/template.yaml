@@ -28,12 +28,12 @@ Globals:
       Proyecto: ReStock
     Layers:
       - !Ref ReStockLambdaLayer
-    
-    Api:
-      Cors:
-        AllowMethods: "'OPTIONS,POST,GET'"
-        AllowHeaders: "'*'"
-        AllowOrigin: "'*'"
+
+  # Api:
+  #   Cors:
+  #     AllowMethods: "'OPTIONS,POST,GET'"
+  #     AllowHeaders: "'*'"
+  #     AllowOrigin: "'*'"
 
 Resources:
 
@@ -132,21 +132,6 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  # API
-  API:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: restock-rest-api
-      StageName: production
-      BinaryMediaTypes:
-        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-        - application/vnd.ms-excel
-      Auth:
-        DefaultAuthorizer: CognitoUserPoolAuthorizer
-        Authorizers:
-          CognitoUserPoolAuthorizer:
-            UserPoolArn: !GetAtt UserPool.Arn
-
   # Lambdas
 
   ## Auth Layer
@@ -155,15 +140,15 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambdas/auth-layer/restock-lambda-auth-signup
-      Events:
-        SignUp:
-          Type: Api
-          Properties:
-            Method: POST
-            Path: /auth/signup
-            Auth:
-              Authorizer: NONE
-            RestApiId: !Ref API
+      # Events:
+      #   SignUp:
+      #     Type: Api
+      #     Properties:
+      #       Method: POST
+      #       Path: /auth/signup
+      #       Auth:
+      #         Authorizer: NONE
+      #       RestApiId: !Ref API
       Environment:
         Variables:
           APP_CLIENT_ID: !Ref UserPoolClient
@@ -179,15 +164,15 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambdas/auth-layer/restock-lambda-auth-verify
-      Events:
-        Verify:
-          Type: Api
-          Properties:
-            Method: POST
-            Path: /auth/verify
-            Auth:
-              Authorizer: NONE
-            RestApiId: !Ref API
+      # Events:
+      #   Verify:
+      #     Type: Api
+      #     Properties:
+      #       Method: POST
+      #       Path: /auth/verify
+      #       Auth:
+      #         Authorizer: NONE
+      #       RestApiId: !Ref API
       Environment:
         Variables:
           APP_CLIENT_ID: !Ref UserPoolClient
@@ -197,15 +182,15 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambdas/auth-layer/restock-lambda-auth-signin
-      Events:
-        Signin:
-          Type: Api
-          Properties:
-            Method: POST
-            Path: /auth/signin
-            Auth:
-              Authorizer: NONE
-            RestApiId: !Ref API
+      # Events:
+      #   Signin:
+      #     Type: Api
+      #     Properties:
+      #       Method: POST
+      #       Path: /auth/signin
+      #       Auth:
+      #         Authorizer: NONE
+      #       RestApiId: !Ref API
       Environment:
         Variables:
           APP_CLIENT_ID: !Ref UserPoolClient
@@ -214,15 +199,15 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambdas/auth-layer/restock-lambda-auth-refresh
-      Events:
-        Refresh:
-          Type: Api
-          Properties:
-            Method: POST
-            Path: /auth/refresh
-            Auth:
-              Authorizer: NONE
-            RestApiId: !Ref API
+      # Events:
+      #   Refresh:
+      #     Type: Api
+      #     Properties:
+      #       Method: POST
+      #       Path: /auth/refresh
+      #       Auth:
+      #         Authorizer: NONE
+      #       RestApiId: !Ref API
       Environment:
         Variables:
           APP_CLIENT_ID: !Ref UserPoolClient
@@ -239,13 +224,13 @@ Resources:
           DB_NAME: !Ref DBNAME
           DB_PASSWORD: !Ref DBPASSWORD
           DB_USER: !Ref DBUSER
-      Events:
-        createConstruction:
-          Type: Api
-          Properties:
-            Method: POST
-            Path: /construction
-            RestApiId: !Ref API
+      # Events:
+      #   createConstruction:
+      #     Type: Api
+      #     Properties:
+      #       Method: POST
+      #       Path: /construction
+      #       RestApiId: !Ref API
 
   RestockLambdaListConstructionsFunction:
     Type: AWS::Serverless::Function
@@ -258,13 +243,13 @@ Resources:
           DB_NAME: !Ref DBNAME
           DB_PASSWORD: !Ref DBPASSWORD
           DB_USER: !Ref DBUSER
-      Events:
-        createConstruction:
-          Type: Api
-          Properties:
-            Method: GET
-            Path: /construction
-            RestApiId: !Ref API
+      # Events:
+      #   createConstruction:
+      #     Type: Api
+      #     Properties:
+      #       Method: GET
+      #       Path: /construction
+      #       RestApiId: !Ref API
 
   RestockLambdaUploadFileFunction:
     Type: AWS::Serverless::Function
@@ -278,18 +263,670 @@ Resources:
           DB_NAME: !Ref DBNAME
           DB_PASSWORD: !Ref DBPASSWORD
           DB_USER: !Ref DBUSER
-      Events:
-        UploadFileEvent:
-          Type: Api
-          Properties:
-            Method: POST
-            Path: /construction/{construction_id}/upload
-            RestApiId: !Ref API
+      # Events:
+      #   UploadFileEvent:
+      #     Type: Api
+      #     Properties:
+      #       Method: POST
+      #       Path: /construction/{construction_id}/upload
+      #       RestApiId: !Ref API
       Policies:
         - S3WritePolicy:
             BucketName: !Ref RestockRawBucketLayer
 
+
+
+  # API
+
+  RestockApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: restock-rest-api
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      BinaryMediaTypes:
+        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        - application/vnd.ms-excel
+
+  RestockCognitoUserPoolAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      AuthorizerResultTtlInSeconds: 300
+      IdentitySource: "method.request.header.Authorization"
+      Name: "cognito-authorizer"
+      RestApiId: !Ref RestockApi
+      Type: "COGNITO_USER_POOLS"
+      ProviderARNs:
+        - !Join [ "", !Split ['"', !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}'] ]
+
+  VerifyUserFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref VerifyUserFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  SignInFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SignInFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  SignUpFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SignUpFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  RefreshFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RefreshFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  RestockLambdaCreateConstructionFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RestockLambdaCreateConstructionFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  RestockLambdaListConstructionsFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RestockLambdaListConstructionsFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  RestockLambdaUploadFileFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RestockLambdaUploadFileFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestockApi}/*"
+
+  RestockApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestockApi
+      StageName: production
+    DependsOn:
+      - VerifyUserFunctionPermission
+      - SignInFunctionPermission
+      - SignUpFunctionPermission
+      - RefreshFunctionPermission
+      - RestockLambdaCreateConstructionFunctionPermission
+      - RestockLambdaListConstructionsFunctionPermission
+      - RestockLambdaUploadFileFunctionPermission
+
+  AuthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !GetAtt RestockApi.RootResourceId
+      PathPart: auth
+
+  AuthSignUpResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !Ref AuthResource
+      PathPart: signup
+
+  AuthVerifyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !Ref AuthResource
+      PathPart: verify
+
+  AuthSignInResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !Ref AuthResource
+      PathPart: signin
+
+  AuthRefreshResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !Ref AuthResource
+      PathPart: refresh
+
+  ConstructionResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !GetAtt RestockApi.RootResourceId
+      PathPart: construction
+
+  ConstructionUploadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestockApi
+      ParentId: !Ref ConstructionResource
+      PathPart: upload
+
+  ## METHODS
+
+  # Auth
+  AuthSignUpPOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthSignUpResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SignUpFunction.Arn}/invocations"
+
+  AuthVerifyPOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthVerifyResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VerifyUserFunction.Arn}/invocations"
+
+  AuthSignInPOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthSignInResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SignInFunction.Arn}/invocations"
+
+  AuthRefreshPOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthRefreshResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RefreshFunction.Arn}/invocations"
+
+  # Construction
+  ConstructionPOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref ConstructionResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref RestockCognitoUserPoolAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RestockLambdaCreateConstructionFunction.Arn}/invocations"
+
+  ConstructionsGETMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref ConstructionResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref RestockCognitoUserPoolAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RestockLambdaListConstructionsFunction.Arn}/invocations"
+
+  ConstructionUploadPOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref ConstructionUploadResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref RestockCognitoUserPoolAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RestockLambdaUploadFileFunction.Arn}/invocations"
+
+  SignUpOPTIONSMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthSignUpResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 201
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 401
+            SelectionPattern: '401'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+          - StatusCode: 500
+            SelectionPattern: '5\\d{2}'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 201
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 401
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+
+
+  VerifyOPTIONSMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthVerifyResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 400
+            SelectionPattern: '400'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+          - StatusCode: 500
+            SelectionPattern: '5\\d{2}'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 400
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+
+  SignInOPTIONSMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthSignInResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 400
+            SelectionPattern: '400'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+          - StatusCode: 500
+            SelectionPattern: '5\\d{2}'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 400
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+
+  RefreshOPTIONSMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref AuthRefreshResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 400
+            SelectionPattern: '400'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+          - StatusCode: 500
+            SelectionPattern: '5\\d{2}'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 400
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+
+  ConstructionOPTIONSMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref ConstructionResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 201
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 400
+            SelectionPattern: '400'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,GET,OPTIONS'"
+          - StatusCode: 500
+            SelectionPattern: '5\\d{2}'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,GET,OPTIONS'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 201
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 400
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+
+  ConstructionUploadOPTIONSMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestockApi
+      ResourceId: !Ref ConstructionUploadResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 201
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+          - StatusCode: 400
+            SelectionPattern: '400'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+          - StatusCode: 500
+            SelectionPattern: '5\\d{2}'
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 201
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 400
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+
+  # API:
+  #   Type: AWS::Serverless::Api
+  #   Properties:
+  #     Name: restock-rest-api
+  #     StageName: production
+  #     BinaryMediaTypes:
+  #       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  #       - application/vnd.ms-excel
+  #     Auth:
+  #       DefaultAuthorizer: CognitoUserPoolAuthorizer
+  #       Authorizers:
+  #         CognitoUserPoolAuthorizer:
+  #           UserPoolArn: !GetAtt UserPool.Arn
+
+  # RestockApiRootMethodOptions:
+  #   Type: AWS::ApiGateway::Method
+  #   Properties:
+  #     AuthorizationType: NONE
+  #     RestApiId: !Ref RestockApi
+  #     ResourceId: !Ref RestockApiRootResource
+  #     HttpMethod: OPTIONS
+  #     RequestParameters: {}
+  #     MethodResponses:
+  #       - StatusCode: '200'
+  #         ResponseParameters:
+  #           method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  #           method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+  #           method.response.header.Access-Control-Allow-Origin: "'*'"
+  #         ResponseModels:
+  #           application/json: 'Empty'
+
+  
+
 Outputs:
   ApiUrl:
     Description: URL of ReStock REST API
-    Value: !Sub "https://${API}.execute-api.${AWS::Region}.amazonaws.com/production/"
+    Value: !Sub "https://${RestockApi}.execute-api.${AWS::Region}.amazonaws.com/production/"

@@ -79,6 +79,10 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 201,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': True,
+            },
             "body": json.dumps(
                 {
                     "email": body['email'],

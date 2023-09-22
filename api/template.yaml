@@ -28,6 +28,12 @@ Globals:
       Proyecto: ReStock
     Layers:
       - !Ref ReStockLambdaLayer
+    
+    Api:
+      Cors:
+        AllowMethods: "'OPTIONS,POST,GET'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
 
 Resources:
 
